@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en" class="antialiased">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Memakho — Keep One Second</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'memakho-dark': '#0a0a09',
+                        'memakho-green': '#dcf5cb',
+                        'memakho-cream': '#f8f6f1',
+                        'memakho-gray': '#a0a09f',
+                    },
+                    fontFamily: {
+                        serif: ['"Cormorant Garamond"', 'serif'],
+                        sans: ['"Inter"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Core Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.19/bundled/lenis.min.js"></script>
+
+    <!-- Three.js Post-Processing (Loaded via CDN for single-file structure) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
+    <style>
+        :root {
+            --m-dark: #0a0a09;
+            --m-green: #dcf5cb;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            background-color: var(--m-dark);
+            color: #ffffff;
+            overscroll-behavior: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* The canvas sits at the absolute back */
+        #webgl-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Cinematic Film Grain Overlay */
+        #grain {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.04;
+            background: url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E');
+            mix-blend-mode: overlay;
+        }
+
+        /* Invisible scroll proxy to drive GSAP */
+        #scroll-proxy {
+            position: relative;
+            width: 100%;
+            height: 600vh; /* Determines the total length of the "film" */
+            z-index: 1;
+        }
+
+        /* Fixed UI Layer for typography & UI */
+        #ui-layer {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            pointer-events: none; /* Let clicks pass through to scroll/buttons */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Make specific UI elements clickable */
+        header, .clickable, .btn-primary {
+            pointer-events: auto;
+        }
+
+        .cinematic-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            text-align: center;
+            opacity: 0;
+            visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0 2rem;
+        }
+
+        .word-wrap {
+            display: inline-block;
+            overflow: hidden;
+            padding-bottom: 0.2em; /* Prevent clipping descenders */
+        }
+
+        .word {
+            display: inline-block;
+            transform: translateY(110%);
+            opacity: 0;
+            filter: blur(8px);
+            will-change: transform, opacity, filter;
+        }
+
+        .sub-text {
+            opacity: 0;
+            filter: blur(4px);
+            transform: translateY(20px);
+        }
+
+        /* Tactile Button */
+        .btn-primary {
+            background-color: var(--m-green);
+            color: var(--m-dark);
+            padding: 1rem 2.5rem;
+            border-radius: 9999px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.4), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: scale(1.02) translateY(-2px);
+            box-shadow: 0 15px 30px rgba(220, 245, 203, 0.15), 0 0 40px rgba(220, 245, 203, 0.1);
+        }
+        
+        .btn-primary:hover::before { opacity: 1; }
+        
+        .btn-primary:active {
+            transform: scale(0.98) translateY(1px);
+            box-shadow: 0 5px 15px rgba(220, 245, 203, 0.1);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 0px; } /* Hidden for cinematic feel */
+    </style>
+</head>
+<body>
+
+    <div id="grain"></div>
+    <div id="webgl-container"></div>
+    
+    <!-- Header -->
+    <header class="fixed top-0 left-0 w-full p-6 md:p-12 flex justify-between items-center z-[100]">
+        <div class="flex items-center gap-3 cursor-pointer group clickable" onclick="lenis.scrollTo(0)">
+            <div class="w-6 h-6 rounded-md border border-white/20 flex items-center justify-center bg-white/5 backdrop-blur-md group-hover:bg-white/10 transition-colors duration-500">
+                <div class="w-2 h-2 rounded-full bg-memakho-green shadow-[0_0_10px_#dcf5cb]"></div>
+            </div>
+            <span class="font-sans text-[11px] uppercase tracking-[0.3em] font-medium text-white/80 group-hover:text-white transition-colors duration-500">Memakho</span>
+        </div>
+        <nav class="hidden md:flex gap-12 font-sans text-[10px] uppercase tracking-[0.2em] text-white/40">
+            <a href="#" class="hover:text-white transition-colors duration-300">Product</a>
+            <a href="#" class="hover:text-white transition-colors duration-300">Manifesto</a>
+            <a href="#" class="hover:text-white transition-colors duration-300">Journal</a>
+        </nav>
+        <button class="md:hidden text-white/70 hover:text-white clickable">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="6" x2="20" y2="6"></line></svg>
+        </button>
+    </header>
+
+    <!-- Invisible wrapper to create scroll length -->
+    <div id="scroll-proxy"></div>
+
+    <!-- The Narrative Layers -->
+    <div id="ui-layer">
+        
+        <!-- Scene 1: Hero -->
+        <div class="cinematic-text" id="scene-1">
+            <h1 class="font-serif text-5xl md:text-7xl lg:text-[6rem] leading-[1.05] tracking-tight text-memakho-cream mb-6">
+                <span class="word-wrap"><span class="word">Give</span></span>
+                <span class="word-wrap"><span class="word">me</span></span>
+                <span class="word-wrap"><span class="word">one</span></span>
+                <span class="word-wrap"><span class="word">second</span></span><br>
+                <span class="word-wrap"><span class="word italic text-white/50">from</span></span>
+                <span class="word-wrap"><span class="word italic text-white/50">our</span></span>
+                <span class="word-wrap"><span class="word italic text-white/50">day.</span></span>
+            </h1>
+            <div class="sub-text mt-8 flex flex-col items-center">
+                <p class="font-sans text-xs uppercase tracking-[0.3em] text-white/30 mb-8">Scroll to capture</p>
+                <div class="w-[1px] h-12 bg-gradient-to-b from-white/30 to-transparent"></div>
+            </div>
+        </div>
+
+        <!-- Scene 2: Capture -->
+        <div class="cinematic-text" id="scene-2">
+            <h2 class="font-serif text-3xl md:text-5xl text-memakho-cream mb-4">
+                <span class="word-wrap"><span class="word">A</span></span>
+                <span class="word-wrap"><span class="word">single</span></span>
+                <span class="word-wrap"><span class="word">frame.</span></span>
+            </h2>
+            <p class="sub-text font-sans text-sm md:text-base text-memakho-gray max-w-sm text-center font-light leading-relaxed">
+                Caught in the amber of time.<br>Preserved exactly as it felt.
+            </p>
+        </div>
+
+        <!-- Scene 3: Accumulation / Week -->
+        <div class="cinematic-text" id="scene-3" style="align-items: flex-start; text-align: left; left: 10%; transform: translateY(-50%); width: 40%;">
+            <div class="sub-text mb-4 inline-flex items-center gap-3">
+                <div class="w-1.5 h-1.5 rounded-full bg-memakho-green shadow-[0_0_10px_#dcf5cb]"></div>
+                <span class="font-sans text-[9px] uppercase tracking-[0.3em] text-memakho-green">Your Week</span>
+            </div>
+            <h2 class="font-serif text-4xl md:text-6xl text-memakho-cream leading-tight mb-6">
+                <span class="word-wrap"><span class="word">I</span></span>
+                <span class="word-wrap"><span class="word">thought</span></span>
+                <span class="word-wrap"><span class="word">I</span></span>
+                <span class="word-wrap"><span class="word">did</span></span>
+                <span class="word-wrap"><span class="word">nothing...</span></span>
+            </h2>
+        </div>
+
+        <!-- Scene 3b: Realization -->
+        <div class="cinematic-text" id="scene-3b" style="align-items: flex-end; text-align: right; left: auto; right: 10%; transform: translateY(-50%); width: 40%;">
+            <h2 class="font-serif text-4xl md:text-6xl text-memakho-cream leading-tight mb-6 italic text-white/80">
+                <span class="word-wrap"><span class="word">Wait.</span></span><br>
+                <span class="word-wrap"><span class="word">I</span></span>
+                <span class="word-wrap"><span class="word">actually</span></span>
+                <span class="word-wrap"><span class="word">lived</span></span>
+                <span class="word-wrap"><span class="word">a</span></span>
+                <span class="word-wrap"><span class="word">lot.</span></span>
+            </h2>
+        </div>
+
+        <!-- Scene 4: Climax -->
+        <div class="cinematic-text" id="scene-4">
+            <div class="w-12 h-12 mb-8 rounded-xl border border-white/10 flex items-center justify-center bg-white/5 backdrop-blur-md sub-text">
+                <div class="w-3 h-3 rounded-full bg-memakho-green shadow-[0_0_15px_#dcf5cb]"></div>
+            </div>
+            <h2 class="font-serif text-3xl md:text-5xl lg:text-6xl text-memakho-cream mb-8 max-w-2xl leading-tight">
+                <span class="word-wrap"><span class="word">A</span></span>
+                <span class="word-wrap"><span class="word">private</span></span>
+                <span class="word-wrap"><span class="word">place</span></span>
+                <span class="word-wrap"><span class="word">for</span></span>
+                <span class="word-wrap"><span class="word">the</span></span>
+                <span class="word-wrap"><span class="word">moments</span></span><br>
+                <span class="word-wrap"><span class="word italic text-white/50">worth</span></span>
+                <span class="word-wrap"><span class="word italic text-white/50">remembering.</span></span>
+            </h2>
+            <div class="sub-text clickable mt-6">
+                <button class="btn-primary">Experience Memakho</button>
+            </div>
+            <footer class="absolute bottom-10 w-full text-center sub-text">
+                <p class="font-sans text-[9px] uppercase tracking-widest text-white/20">Available for iOS & Android — © 2026</p>
+            </footer>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. SETUP LENIS SMOOTH SCROLLING ---
+        const lenis = new Lenis({
+            duration: 1.5,
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            direction: 'vertical',
+            gestureDirection: 'vertical',
+            smooth: true,
+            mouseMultiplier: 0.8,
+            smoothTouch: false,
+            touchMultiplier: 2,
+        });
+
+        // --- 2. THREE.JS SCENE ARCHITECTURE ---
+        const container = document.getElementById('webgl-container');
+        const scene = new THREE.Scene();
+        // Atmospheric depth
+        scene.fog = new THREE.FogExp2(0x0a0a09, 0.035);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 10);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setClearColor(0x0a0a09, 1);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        container.appendChild(renderer.domElement);
+
+        // --- Post-Processing (Cinematic Bloom) ---
+        const renderScene = new THREE.RenderPass(scene, camera);
+        const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        bloomPass.threshold = 0.2;
+        bloomPass.strength = 0.6; // Base strength
+        bloomPass.radius = 0.8;
+        
+        const composer = new THREE.EffectComposer(renderer);
+        composer.addPass(renderScene);
+        composer.addPass(bloomPass);
+
+        // --- Lighting ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
+        scene.add(ambientLight);
+
+        // Inner glowing light for the core
+        const coreLight = new THREE.PointLight(0xdcf5cb, 2, 20);
+        scene.add(coreLight);
+
+        // Subtle rim light
+        const rimLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        rimLight.position.set(5, 5, -5);
+        scene.add(rimLight);
+
+        // --- 3. CREATING THE ASSETS ---
+
+        // The Signature Memakho "Core"
+        const coreGroup = new THREE.Group();
+        scene.add(coreGroup);
+
+        // Outer Translucent Shell
+        const shellGeo = new THREE.IcosahedronGeometry(1.5, 16); // High detail for organic vertex manipulation
+        
+        // Custom Shader Material mimicking glass/liquid
+        const shellMat = new THREE.MeshPhysicalMaterial({
+            color: 0x0a0a09,
+            metalness: 0.1,
+            roughness: 0.1,
+            transmission: 0.95, // Glass-like
+            thickness: 2.0,
+            ior: 1.4,
+            transparent: true,
+            opacity: 1,
+            side: THREE.DoubleSide
+        });
+        const shellMesh = new THREE.Mesh(shellGeo, shellMat);
+        coreGroup.add(shellMesh);
+
+        // Inner Glowing Anomaly
+        const innerGeo = new THREE.IcosahedronGeometry(0.5, 4);
+        const innerMat = new THREE.MeshBasicMaterial({ color: 0xdcf5cb, wireframe: true, transparent: true, opacity: 0.3 });
+        const innerMesh = new THREE.Mesh(innerGeo, innerMat);
+        coreGroup.add(innerMesh);
+
+        // Save original vertices for organic distortion
+        const originalPositions = shellGeo.attributes.position.clone();
+
+        // --- Generate UI Cards (Canvas Textures) ---
+        function createProductCardTexture(title, time, hasImage = false, isDark = true) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 640;
+            const ctx = canvas.getContext('2d');
+
+            // Card Base
+            ctx.fillStyle = isDark ? 'rgba(20, 20, 19, 0.9)' : 'rgba(240, 240, 240, 0.9)';
+            ctx.beginPath();
+            ctx.roundRect(0, 0, 512, 640, 32);
+            ctx.fill();
+
+            // Border
+            ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.1)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Image Placeholder (Gradient/Noise)
+            if (hasImage) {
+                const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                gradient.addColorStop(0, isDark ? '#1a1a1a' : '#e0e0e0');
+                gradient.addColorStop(1, isDark ? '#0a0a09' : '#cccccc');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.roundRect(32, 32, 448, 400, 16);
+                ctx.fill();
+                
+                // Abstract shape inside image
+                ctx.fillStyle = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.05)';
+                ctx.beginPath();
+                ctx.arc(256, 232, 100, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Typography
+            const textY = hasImage ? 490 : 80;
+            ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.9)' : 'rgba(10, 10, 9, 0.9)';
+            ctx.font = '300 36px "Inter", sans-serif';
+            ctx.fillText(title, 40, textY);
+
+            ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(10, 10, 9, 0.5)';
+            ctx.font = '400 24px "Inter", sans-serif';
+            ctx.fillText(time, 40, textY + 40);
+
+            // App element: Avatar/Icon
+            ctx.fillStyle = isDark ? '#dcf5cb' : '#0a0a09';
+            ctx.beginPath();
+            ctx.arc(60, canvas.height - 60, 20, 0, Math.PI * 2);
+            ctx.fill();
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.minFilter = THREE.LinearFilter;
+            return texture;
+        }
+
+        // Create the card meshes
+        const cardsData = [
+            { t: "Morning light", d: "08:14 AM", img: true },
+            { t: "Quiet coffee", d: "09:30 AM", img: false },
+            { t: "The rain started", d: "02:15 PM", img: true },
+            { t: "Walking back", d: "06:45 PM", img: true },
+            { t: "Just reading", d: "10:00 PM", img: false },
+            { t: "A random thought", d: "Tuesday", img: false },
+            { t: "City sounds", d: "Wednesday", img: true },
+            { t: "Late dinner", d: "Thursday", img: true },
+            { t: "Looking up", d: "Friday", img: false },
+            { t: "Still here", d: "Saturday", img: true },
+        ];
+
+        const cards = [];
+        const cardGeo = new THREE.PlaneGeometry(1.6, 2);
+        
+        cardsData.forEach((data, i) => {
+            const texture = createProductCardTexture(data.t, data.d, data.img, true);
+            const mat = new THREE.MeshPhysicalMaterial({
+                map: texture,
+                transparent: true,
+                opacity: 0, // Hidden initially
+                roughness: 0.4,
+                metalness: 0.1,
+                side: THREE.DoubleSide
+            });
+            const mesh = new THREE.Mesh(cardGeo, mat);
+            
+            // Store target positions for the "Week Grid" layout
+            const col = i % 5;
+            const row = Math.floor(i / 5);
+            
+            mesh.userData = {
+                // Origin (inside core)
+                origin: new THREE.Vector3(0, 0, 0),
+                // Exploded phase (chaotic)
+                exploded: new THREE.Vector3((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 10 - 5),
+                // Grid phase (structured week view)
+                grid: new THREE.Vector3((col - 2) * 2.2, (row * -2.4) + 1, -15 - (Math.random()*2)),
+                // Rotations
+                rotExploded: new THREE.Vector3(Math.random(), Math.random(), Math.random()),
+                rotGrid: new THREE.Vector3(0, 0, 0),
+                // Random organic drift offset
+                drift: Math.random() * Math.PI * 2
+            };
+            
+            // Start at origin
+            mesh.position.copy(mesh.userData.origin);
+            scene.add(mesh);
+            cards.push(mesh);
+        });
+
+        // --- The Constellation (Climax Particles) ---
+        const particleCount = 2000;
+        const pGeo = new THREE.BufferGeometry();
+        const pPos = new Float32Array(particleCount * 3);
+        const pSizes = new Float32Array(particleCount);
+        
+        for(let i=0; i<particleCount; i++) {
+            // Spherical distribution
+            const r = 20 + Math.random() * 40;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos((Math.random() * 2) - 1);
+            
+            pPos[i*3] = r * Math.sin(phi) * Math.cos(theta);
+            pPos[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+            pPos[i*3+2] = r * Math.cos(phi);
+            
+            pSizes[i] = Math.random() * 2;
+        }
+        
+        pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+        pGeo.setAttribute('size', new THREE.BufferAttribute(pSizes, 1));
+        
+        // Custom shader for particles to control size and fade
+        const pMat = new THREE.ShaderMaterial({
+            uniforms: {
+                color: { value: new THREE.Color(0xdcf5cb) },
+                opacity: { value: 0.0 }
+            },
+            vertexShader: `
+                attribute float size;
+                varying float vOpacity;
+                void main() {
+                    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                    gl_PointSize = size * (300.0 / -mvPosition.z);
+                    gl_Position = projectionMatrix * mvPosition;
+                }
+            `,
+            fragmentShader: `
+                uniform vec3 color;
+                uniform float opacity;
+                void main() {
+                    // Soft circle
+                    float d = distance(gl_PointCoord, vec2(0.5));
+                    if(d > 0.5) discard;
+                    gl_FragColor = vec4(color, opacity * (1.0 - (d*2.0)));
+                }
+            `,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        
+        const constellation = new THREE.Points(pGeo, pMat);
+        scene.add(constellation);
+
+        // --- 4. CENTRAL STATE & CHOREOGRAPHY (GSAP) ---
+        gsap.registerPlugin(ScrollTrigger);
+
+        // This object acts as the bridge between GSAP scroll progress and the WebGL render loop
+        const sceneState = {
+            progress: 0,
+            coreScale: 1.0,
+            coreDistortion: 0.15,
+            bloomStrength: 0.6,
+            lightInt: 2,
+            camZ: 10,
+            camY: 0,
+            camX: 0,
+            cardLayout: 0, // 0 = origin, 1 = exploded, 2 = grid
+            cardOpacity: 0,
+            constellationOp: 0,
+            coreOpacity: 1
+        };
+
+        // Text reveal helper
+        function setupTextAnim(sceneId) {
+            const section = document.getElementById(sceneId);
+            const words = section.querySelectorAll('.word');
+            const subs = section.querySelectorAll('.sub-text');
+            
+            const tl = gsap.timeline({ paused: true });
+            
+            tl.set(section, { visibility: 'visible', opacity: 1 });
+            
+            if(words.length) {
+                tl.to(words, {
+                    y: "0%",
+                    opacity: 1,
+                    filter: "blur(0px)",
+                    duration: 1.2,
+                    stagger: 0.08,
+                    ease: "power3.out"
+                }, 0);
+            }
+            if(subs.length) {
+                tl.to(subs, {
+                    y: 0,
+                    opacity: 1,
+                    filter: "blur(0px)",
+                    duration: 1.5,
+                    stagger: 0.2,
+                    ease: "power2.out"
+                }, 0.5);
+            }
+            
+            return {
+                play: () => tl.play(),
+                reverse: () => tl.reverse(),
+                hideInstantly: () => { tl.pause(0); gsap.set(section, {visibility: 'hidden'}); }
+            };
+        }
+
+        const anims = {
+            s1: setupTextAnim('scene-1'),
+            s2: setupTextAnim('scene-2'),
+            s3: setupTextAnim('scene-3'),
+            s3b: setupTextAnim('scene-3b'),
+            s4: setupTextAnim('scene-4')
+        };
+
+        // Initialize first scene
+        anims.s1.play();
+
+        // Main Scroll Timeline
+        const masterTl = gsap.timeline({
+            scrollTrigger: {
+                trigger: "#scroll-proxy",
+                start: "top top",
+                end: "bottom bottom",
+                scrub: 1.5, // Smooth scrubbing
+                onUpdate: (self) => {
+                    sceneState.progress = self.progress;
+                    
+                    // Logic to trigger UI text at specific progress points
+                    const p = self.progress;
+                    
+                    // Scene 1 logic
+                    if(p > 0.05 && p < 0.1) anims.s1.reverse();
+                    else if(p <= 0.05) anims.s1.play();
+
+                    // Scene 2 (Capture) logic
+                    if(p >= 0.12 && p < 0.25) anims.s2.play();
+                    else if(p >= 0.25 || p < 0.12) anims.s2.reverse();
+
+                    // Scene 3 (Week) logic
+                    if(p >= 0.35 && p < 0.55) anims.s3.play();
+                    else if(p >= 0.55 || p < 0.35) anims.s3.reverse();
+
+                    // Scene 3b (Wait...) logic
+                    if(p >= 0.55 && p < 0.70) anims.s3b.play();
+                    else if(p >= 0.70 || p < 0.55) anims.s3b.reverse();
+
+                    // Scene 4 (Climax) logic
+                    if(p >= 0.85) anims.s4.play();
+                    else if(p < 0.85) anims.s4.reverse();
+                }
+            }
+        });
+
+        // Choreography Sequence
+        masterTl
+            // Phase 1: The Capture (0 -> 15%)
+            .to(sceneState, { coreScale: 0.1, coreDistortion: 0, camZ: 8, duration: 1 }, 0)
+            .to(sceneState, { bloomStrength: 4.0, lightInt: 10, duration: 0.2, ease: "power2.in" }, 0.8) // Flash!
+            
+            // Phase 2: The Explosion / Time Dilation (15% -> 30%)
+            .to(sceneState, { bloomStrength: 0.4, lightInt: 0.5, duration: 0.5, ease: "power2.out" }, 1.0)
+            .to(sceneState, { cardLayout: 1, cardOpacity: 1, coreOpacity: 0, duration: 1.5, ease: "power2.out" }, 1.0)
+            .to(sceneState, { camZ: 2, duration: 1.5 }, 1.0)
+
+            // Phase 3: The Assembly / Week View (30% -> 60%)
+            .to(sceneState, { cardLayout: 2, camZ: -5, camX: 1, duration: 2, ease: "power1.inOut" }, 3.0)
+            .to(sceneState, { camY: -3.5, duration: 2, ease: "none" }, 5.0) // Pan down the grid
+
+            // Phase 4: The Accumulation / Pull Back (60% -> 85%)
+            .to(sceneState, { camZ: 40, camY: 0, camX: 0, duration: 3, ease: "power2.inOut" }, 7.0)
+            .to(sceneState, { cardOpacity: 0.1, constellationOp: 1.0, duration: 2 }, 7.5)
+
+            // Phase 5: Climax Resting State (85% -> 100%)
+            .to(sceneState, { coreOpacity: 1, coreScale: 0.5, bloomStrength: 1.2, duration: 2 }, 9.0)
+            .to(sceneState, { camZ: 35, duration: 1 }, 9.0);
+
+
+        // --- 5. RENDER LOOP & ORGANIC MOTION ---
+        const clock = new THREE.Clock();
+        
+        // Mouse interaction for parallax
+        let targetCamX = 0;
+        let targetCamY = 0;
+        let mouseX = 0;
+        let mouseY = 0;
+
+        document.addEventListener('mousemove', (e) => {
+            mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        function animate(time) {
+            lenis.raf(time); // Sync smooth scroll
+
+            const elapsed = clock.getElapsedTime();
+            const dt = clock.getDelta();
+
+            // 1. Organic Core Breathing (Vertex Displacement)
+            if (sceneState.coreOpacity > 0.01) {
+                const positions = shellGeo.attributes.position;
+                for (let i = 0; i < positions.count; i++) {
+                    const original = new THREE.Vector3(
+                        originalPositions.getX(i),
+                        originalPositions.getY(i),
+                        originalPositions.getZ(i)
+                    );
+                    
+                    // Calculate noise-like displacement based on position and time
+                    const noise = Math.sin(original.x * 3 + elapsed) * 
+                                  Math.cos(original.y * 3 + elapsed * 0.8) * 
+                                  Math.sin(original.z * 3 + elapsed * 1.2);
+                    
+                    const displacement = original.clone().normalize().multiplyScalar(noise * sceneState.coreDistortion);
+                    const finalPos = original.add(displacement);
+                    
+                    positions.setXYZ(i, finalPos.x, finalPos.y, finalPos.z);
+                }
+                positions.needsUpdate = true;
+                shellGeo.computeVertexNormals();
+
+                coreGroup.rotation.y = elapsed * 0.2;
+                coreGroup.rotation.x = Math.sin(elapsed * 0.1) * 0.2;
+                
+                coreGroup.scale.setScalar(sceneState.coreScale);
+                shellMat.opacity = sceneState.coreOpacity;
+                innerMat.opacity = sceneState.coreOpacity * 0.3;
+                coreLight.intensity = sceneState.lightInt * sceneState.coreOpacity;
+            } else {
+                coreLight.intensity = 0;
+            }
+
+            // 2. Card Layout Interpolation
+            cards.forEach((card, i) => {
+                const u = card.userData;
+                let targetPos = new THREE.Vector3();
+                let targetRot = new THREE.Vector3();
+
+                // Determine layout based on state (0 to 1 to 2)
+                if (sceneState.cardLayout <= 1) {
+                    // Interpolate Origin -> Exploded
+                    const t = sceneState.cardLayout; // 0 to 1
+                    targetPos.lerpVectors(u.origin, u.exploded, t);
+                    targetRot.set(u.rotExploded.x * t, u.rotExploded.y * t, u.rotExploded.z * t);
+                } else {
+                    // Interpolate Exploded -> Grid
+                    const t = sceneState.cardLayout - 1; // 0 to 1
+                    targetPos.lerpVectors(u.exploded, u.grid, t);
+                    
+                    // Grid rotation needs to face camera, so lerp to 0
+                    targetRot.set(
+                        THREE.MathUtils.lerp(u.rotExploded.x, u.rotGrid.x, t),
+                        THREE.MathUtils.lerp(u.rotExploded.y, u.rotGrid.y, t),
+                        THREE.MathUtils.lerp(u.rotExploded.z, u.rotGrid.z, t)
+                    );
+                }
+
+                // Apply organic floating drift
+                const driftY = Math.sin(elapsed + u.drift) * 0.1;
+                targetPos.y += driftY;
+
+                // Smoothly move card to target position
+                card.position.lerp(targetPos, 0.1);
+                card.rotation.setFromVector3(new THREE.Vector3().lerp(targetRot, 0.1));
+                
+                // Update opacity
+                card.material.opacity = THREE.MathUtils.lerp(card.material.opacity, sceneState.cardOpacity, 0.1);
+            });
+
+            // 3. Constellation Rotation & Opacity
+            if (sceneState.constellationOp > 0.01) {
+                constellation.rotation.y = elapsed * 0.02;
+                constellation.rotation.x = Math.sin(elapsed * 0.05) * 0.1;
+            }
+            pMat.uniforms.opacity.value = sceneState.constellationOp;
+
+            // 4. Camera Parallax & Positioning
+            targetCamX = sceneState.camX + (mouseX * 0.5);
+            targetCamY = sceneState.camY + (mouseY * 0.5);
+            
+            camera.position.x += (targetCamX - camera.position.x) * 0.05;
+            camera.position.y += (targetCamY - camera.position.y) * 0.05;
+            camera.position.z += (sceneState.camZ - camera.position.z) * 0.05;
+            
+            // Subtle look at center
+            camera.lookAt(0, sceneState.camY * 0.5, 0);
+
+            // 5. Post-Processing updates
+            bloomPass.strength = sceneState.bloomStrength;
+
+            // Render via composer
+            composer.render();
+
+            requestAnimationFrame(animate);
+        }
+
+        requestAnimationFrame(animate);
+
+        // --- 6. RESIZE HANDLER ---
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+            
+            // On mobile, adjust camera base Z to avoid UI clipping
+            if(window.innerWidth < 768 && sceneState.progress < 0.1) {
+                gsap.set(sceneState, { camZ: 14 });
+            }
+        });
+        
+        // Trigger initial resize logic
+        window.dispatchEvent(new Event('resize'));
+
+    </script>
+</body>
+</html>
