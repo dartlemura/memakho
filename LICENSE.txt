@@ -1,0 +1,130 @@
+MEMAKHO — LICENSE
+Copyright © 2026 Memakho. All rights reserved.
+Memakho • A product by Dartlemura
+
+Category: Website
+
+IMPORTANT NOTICE
+
+This repository and all original contents within it are proprietary
+and copyrighted works of C. M. Darshan.
+
+The source code may be publicly viewable for reference and inspection,
+but PUBLIC AVAILABILITY DOES NOT MEAN PUBLIC PERMISSION TO COPY,
+MODIFY, DISTRIBUTE, REPUBLISH, OR USE THE WORK.
+
+1. COPYRIGHT
+
+All original source code, design, visual concepts, layouts, animations,
+3D scenes, interactions, branding, copy, graphics, assets, and other
+original materials contained in this repository are protected by
+applicable copyright and intellectual property laws.
+
+Copyright © 2026 Memakho. All rights reserved.
+
+"Memakho" and associated branding, logos, names, visual identity,
+design language, and original creative concepts are proprietary
+intellectual property of their respective owner(s).
+
+2. NO LICENSE GRANTED
+
+Except where explicitly stated otherwise in this repository, no license
+or permission is granted to any person or organization to:
+
+• Copy or reproduce this project or substantial portions of it.
+• Republish or redistribute the source code.
+• Modify, adapt, translate, or create derivative works.
+• Reuse the website design, layout, animations, interactions, or
+distinctive visual implementation in another project.
+• Use the project or its source code for commercial purposes.
+• Use the project as a template, starter project, theme, or product.
+• Upload, mirror, fork, or redistribute substantial portions of the
+repository elsewhere.
+• Remove, alter, or conceal copyright, ownership, or attribution notices.
+• Present any substantial portion of this work as their own.
+• Use Memakho branding, logos, names, or identity without permission.
+
+3. VIEWING THE SOURCE
+
+You may view the repository and inspect the source code for personal,
+educational, or informational purposes only!
+
+Viewing, studying, or referencing the source does not grant permission
+to copy, reproduce, redistribute, or reuse substantial portions of it.
+
+4. PERSONAL AND EDUCATIONAL USE
+
+Any permission for personal or educational experimentation is limited
+to situations where the original work is not publicly redistributed,
+commercially exploited, or presented as an original work of another
+person.
+
+When in doubt, permission must be obtained before reuse.
+
+5. THIRD-PARTY MATERIALS
+
+This license applies only to original materials owned by the copyright
+holder.
+
+Third-party libraries, frameworks, fonts, icons, images, models,
+textures, sounds, APIs, and other external materials may be subject to
+their own licenses and terms.
+
+Nothing in this license overrides the license or terms applicable to
+third-party materials.
+
+6. TRADEMARKS AND BRANDING
+
+The names "Memakho", "Dartlemura", associated logos, symbols, taglines, product
+names, visual identity elements, and other distinctive branding
+associated with Memakho may not be used in a manner that suggests
+ownership, affiliation, sponsorship, endorsement, or authorization
+without prior written permission.
+
+Copyright permission does not automatically grant trademark permission.
+
+7. CONTRIBUTIONS
+
+Unless a separate written agreement states otherwise, submitting a
+contribution to this repository does not transfer ownership of the
+contribution to another party.
+
+Contributors must have the necessary rights to submit any material
+they contribute and must not submit third-party material that they do
+not have permission to license or redistribute.
+
+8. NO WARRANTY
+
+This project is provided "AS IS", without warranties of any kind,
+express or implied, to the maximum extent permitted by applicable law.
+
+The copyright holder shall not be responsible for claims, damages,
+losses, or liabilities arising from the use of this repository or its
+contents, except where such limitation is not permitted by law.
+
+9. RESERVATION OF RIGHTS
+
+All rights not expressly granted by this license are reserved.
+
+No permission should be inferred from the absence of a restriction
+or from the public availability of this repository.
+
+10. REQUESTING PERMISSION
+
+If you wish to use, reproduce, modify, distribute, publish, commercially
+exploit, or otherwise reuse substantial portions of this project,
+please obtain prior written permission from the copyright holder.
+
+A separate written license may be granted for specific uses at the
+copyright holder's discretion.
+
+11. ENFORCEMENT
+
+Unauthorized use, reproduction, distribution, modification, or
+commercial exploitation may constitute copyright or other intellectual
+property infringement and may be subject to legal remedies available
+under applicable law.
+
+12. COPYRIGHT NOTICE
+
+Copyright © 2026 Memakho. All rights reserved.
